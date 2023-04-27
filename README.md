@@ -8,6 +8,7 @@
 **Table of Contents**
 
 - [Installation](#installation)
+- [Notes](#notes)
 - [License](#license)
 
 ## Installation
@@ -15,6 +16,12 @@
 ```console
 pip install git+https://github.com/smutch/hyperspec.git
 ```
+
+## Notes
+
+Much of the documentation for this project was auto-generated using the awesome
+[write-the](https://write-the.wytamma.com/) tool (see [#1](https://github.com/smutch/hyperspec/pull/1)).
+Go check it out!
 
 ## License
 
