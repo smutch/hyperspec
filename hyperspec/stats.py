@@ -1,4 +1,3 @@
-import numba
 import numpy as np
 import numpy.typing as npt
 import xarray as xr
@@ -21,7 +20,6 @@ def pca(cube: xr.DataArray, n_components: int = 3) -> xr.Dataset:
     return components
 
 
-@numba.jit(nopython=True)
 def _cosine_similarity(arr1: npt.NDArray[np.float_], arr2: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
     """Calculate the vector-wise cosine similarity between two arrays of vectors.
 
@@ -35,15 +33,10 @@ def _cosine_similarity(arr1: npt.NDArray[np.float_], arr2: npt.NDArray[np.float_
     Returns:
         An array of shape (N,) containing the cosine similarity between each pair of vectors.
     """
-    size = arr1.shape[0]
-    dist = np.zeros(size)
-    for ii in range(size):
-        u = arr1[ii]
-        v = arr2[ii]
-        uv = np.average(u * v)
-        uu = np.average(np.square(u))
-        vv = np.average(np.square(v))
-        dist[ii] = max(0, min(1.0 - uv / np.sqrt(uu * vv), 2.0))
+    uv = np.average(arr1 * arr2, axis=1)
+    uu = np.average(np.square(arr1), axis=1)
+    vv = np.average(np.square(arr2), axis=1)
+    dist = np.fmax(np.fmin(1.0 - uv / np.sqrt(uu * vv), 2.0), 0)
     return 1.0 - dist
 
 
