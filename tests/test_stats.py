@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial import distance
 
-from hyperspec.stats import _cosine_similarity
+from hyperspec.stats import pixelwise_cosine_similarity
 
 
 def test_cosine_similarity():
@@ -13,7 +13,7 @@ def test_cosine_similarity():
     expected_similarity = 1.0 - distance.cosine(vector1, vector2)
 
     # Call the function that calculates the cosine similarity
-    actual_similarity = _cosine_similarity(vector1[np.newaxis, :], vector2[np.newaxis, :])[0]
+    actual_similarity = pixelwise_cosine_similarity(vector1[np.newaxis, :], vector2[np.newaxis, :])[0]
 
     # Check that the actual similarity matches the expected similarity
     assert np.all(np.isclose(actual_similarity, expected_similarity))
