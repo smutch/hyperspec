@@ -87,12 +87,13 @@ def validate_homography(homog: npt.NDArray[np.float_]):
         raise ValueError(_err)
 
     # must approximately preserve area (to within a tolerance appropriate for us)
-    points = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], np.float32)
+    # NOTE: Order of points is important here to provide a valid contour
+    points = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], np.float32)
     transformed = cv2.perspectiveTransform(points[None, :, :], homog).squeeze()
     area = cv2.contourArea(transformed)
     tol = 0.1
     if area < 1.0 - tol or area > 1.0 + tol:
-        _err = f"Homography does preserve area to within a {int(tol*100)}%"
+        _err = f"Homography does preserve area to within a {int(tol*100)}% ({area})"
         raise ValueError(_err)
 
     # we do not want large perspective shifts (assuming images are taken almost front on)
