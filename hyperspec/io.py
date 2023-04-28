@@ -93,7 +93,8 @@ def read_preview(
     Returns:
       npt.NDArray: The preview image.
     Examples:
-      >>> preview = read_preview(Path("/path/to/hypercube.bil"), bounds=np.array([[0, 1], [1, 2]]), smooth=2.0, greyscale=True)
+      >>> preview = read_preview(Path("/path/to/hypercube.bil"), bounds=np.array([[0, 1], [1, 2]]),
+                                 smooth=2.0, greyscale=True)
       >>> preview
       array([[0.0020, 0.0020],
              [0.0020, 0.0020]], dtype=float32)
