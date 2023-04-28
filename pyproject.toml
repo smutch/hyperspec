@@ -46,6 +46,8 @@ path = "hyperspec/__about__.py"
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
+  "write-the>=0.7.5",
+  "pexpect>=4.8"
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests}"

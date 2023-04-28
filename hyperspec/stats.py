@@ -84,3 +84,30 @@ def pixelwise_cosine_similarity(cube1: npt.NDArray[np.float_], cube2: npt.NDArra
         raise ValueError(_err)
 
     return _cosine_similarity(arr1, arr2).reshape(cube1.shape[:-1])
+
+
+def pixelwise_sam(cube1: npt.NDArray[np.float_], cube2: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
+    """
+    Computes the pixelwise spherical angle measure (SAM) between two 3D cubes.
+    Args:
+      cube1 (npt.NDArray[np.float_]): The first 3D cube.
+      cube2 (npt.NDArray[np.float_]): The second 3D cube.
+    Returns:
+      npt.NDArray[np.float_]: The SAM between the two cubes.
+    Raises:
+      ValueError: If cube1 and cube2 do not have the same shape and are not both 3D.
+    Examples:
+      >>> cube1 = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+      >>> cube2 = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+      >>> pixelwise_sam(cube1, cube2)
+      array([[0., 0.],
+             [0., 0.]])
+    """
+    if cube1.shape != cube2.shape or cube1.ndim != 3:
+        _err = f"cube1 and cube2 must have the same shape and be 3D, but got {cube1.shape} and {cube2.shape}"
+        raise ValueError(_err)
+
+    numerator = np.einsum("ijk,ijk->ij", cube1, cube2)
+    denom1 = np.sqrt(np.einsum("ijk,ijk->ij", cube1, cube1))
+    denom2 = np.sqrt(np.einsum("ijk,ijk->ij", cube2, cube2))
+    return np.arccos(np.clip(numerator / (denom1 * denom2), -1.0, 1.0))

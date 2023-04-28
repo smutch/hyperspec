@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.spatial import distance
+from spectral.algorithms import spectral_angles
 
-from hyperspec.stats import _cosine_similarity
+from hyperspec.stats import _cosine_similarity, pixelwise_sam
 
 
 def test_cosine_similarity():
@@ -16,4 +17,12 @@ def test_cosine_similarity():
     actual_similarity = _cosine_similarity(vector1[np.newaxis, :], vector2[np.newaxis, :])[0]
 
     # Check that the actual similarity matches the expected similarity
-    assert np.all(np.isclose(actual_similarity, expected_similarity))
+    np.testing.assert_array_almost_equal(actual_similarity, expected_similarity)
+
+
+def test_pixelwise_sam():
+    cube1 = np.random.rand(4, 4, 4)
+    cube2 = np.ones(cube1.shape) * cube1[0, 0]
+    sam1 = pixelwise_sam(cube1, cube2)
+    sam2 = spectral_angles(cube1, cube2[0, 0][None, :]).squeeze()
+    np.testing.assert_array_almost_equal(sam1, sam2)
