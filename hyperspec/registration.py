@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Any
 from warnings import warn
@@ -13,6 +14,7 @@ import xarray as xr
 from hyperspec.io import read_cube, read_preview
 
 __all__ = ["register"]
+logger = logging.getLogger(__name__)
 
 
 def _cli(
@@ -37,8 +39,6 @@ def _cli(
       None
     Side Effects:
       Writes the output file to the given path.
-    Examples:
-      >>> _cli(dst_path=Path("dst.hdr"), src_path=Path("src.hdr"), crops_path=Path("crops.json"), out_path=Path("out.zarr"), debug=True)
     """
     capture_id = src_path.parent.parts[-2]
 
@@ -69,6 +69,38 @@ def _cli(
     xr.Dataset({capture_id: result}).to_zarr(out_path.with_suffix(".zarr"), mode="w")
 
 
+def validate_homography(homog: npt.NDArray[np.float_]):
+    logger.info(f"Validating homography for {homog}")
+    # must preserves orientation
+    if np.linalg.det(homog[:2, :2]) < 0:
+        _err = "Homography does not preserve orientation"
+        raise ValueError(_err)
+
+    # check the determinant is non-zero
+    if np.isclose(np.linalg.det(homog), 0.0):
+        _err = "Homography transform is non-invertable"
+        raise ValueError(_err)
+
+    # check the transform is homogeneous
+    if homog[2, 2] != 1.0:
+        _err = "Homography transform is not homogeneous"
+        raise ValueError(_err)
+
+    # must approximately preserve area (to within a tolerance appropriate for us)
+    points = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], np.float32)
+    transformed = cv2.perspectiveTransform(points[None, :, :], homog).squeeze()
+    area = cv2.contourArea(transformed)
+    tol = 0.1
+    if area < 1.0 - tol or area > 1.0 + tol:
+        _err = f"Homography does preserve area to within a {int(tol*100)}%"
+        raise ValueError(_err)
+
+    # we do not want large perspective shifts (assuming images are taken almost front on)
+    if np.any(np.abs(homog[2, :2]) > 0.001):
+        _err = "Homography results in large perspective shift"
+        raise ValueError(_err)
+
+
 def register(
     dst_preview: npt.NDArray,
     dst_cube: xr.DataArray,
@@ -90,11 +122,14 @@ def register(
       flann_index_kwargs (dict[str, Any] | None): Keyword arguments for FLANN index.
       flann_search_kwargs (dict[str, Any] | None): Keyword arguments for FLANN search.
     Returns:
-      tuple[xr.DataArray | None, npt.NDArray | None, npt.NDArray]: The registered cube, the registered preview, and the matched keypoints visualization.
+      tuple[xr.DataArray | None, npt.NDArray | None, npt.NDArray]: The registered cube, the registered preview, and the
+                                                                   matched keypoints visualization.
     Side Effects:
       None
     Examples:
-      >>> register(dst_preview, dst_cube, src_preview, src_cube, orb_create_kwargs={"nfeatures": 1000}, flann_index_kwargs={"algorithm": 5})
+      >>> register(dst_preview, dst_cube, src_preview, src_cube,
+                   orb_create_kwargs={"nfeatures": 1000},
+                   flann_index_kwargs={"algorithm": 5})
       (xr.DataArray, npt.NDArray, npt.NDArray)
     """
     _orb_create_kwargs = {"nfeatures": 10_000, "scaleFactor": 1.2, "scoreType": cv2.ORB_HARRIS_SCORE}
@@ -119,6 +154,7 @@ def register(
         pts_src = np.array([keypoints_src[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
         pts_dst = np.array([keypoints_dst[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
         homog, _ = cv2.findHomography(pts_src, pts_dst, method=cv2.RANSAC, ransacReprojThreshold=5.0)
+        validate_homography(homog)
 
         result_preview = cv2.warpPerspective(src_preview, homog, src_preview.shape[:2][::-1])
 
