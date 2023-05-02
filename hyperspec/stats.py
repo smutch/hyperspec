@@ -4,7 +4,7 @@ import xarray as xr
 from sklearn import decomposition as decomp
 from spectral.algorithms import spectral_angles
 
-__all__ = ["pca", "pixelwise_cosine_similarity"]
+__all__ = ["pca", "pixelwise_cosine_similarity", "sam", "pixelwise_sam", "pairwise_sam"]
 
 
 def pca(cube: xr.DataArray, n_components: int = 3) -> xr.Dataset:
