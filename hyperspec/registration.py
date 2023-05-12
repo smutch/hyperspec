@@ -1,72 +1,23 @@
 import json
 import logging
+from os import PathLike
 from pathlib import Path
 from typing import Any
 from warnings import warn
 
 import cv2
+import holoviews as hv
 import imutils
 import numpy as np
 import numpy.typing as npt
-import typer
+import panel as pn
+import param
 import xarray as xr
 
-from hyperspec.io import read_cube, read_preview
+from hyperspec.io import read_preview
 
-__all__ = ["register"]
+__all__ = ["register", "crop"]
 logger = logging.getLogger(__name__)
-
-
-def _cli(
-    dst_path: Path = typer.Argument(..., dir_okay=False, exists=True),  # noqa: B008
-    src_path: Path = typer.Argument(..., dir_okay=False, exists=True),  # noqa: B008
-    crops_path: Path = typer.Argument(..., exists=True),  # noqa: B008
-    out_path: Path = typer.Argument(...),  # noqa: B008
-    *,
-    smooth: float = 0.0,
-    debug: bool = False,
-):
-    """
-    Runs the registration process.
-    Args:
-      dst_path (Path): Path to the destination cube.
-      src_path (Path): Path to the source cube.
-      crops_path (Path): Path to the crops file.
-      out_path (Path): Path to the output file.
-      smooth (float): Smoothing factor for the previews.
-      debug (bool): Flag to show the matched keypoints.
-    Returns:
-      None
-    Side Effects:
-      Writes the output file to the given path.
-    """
-    capture_id = src_path.parent.parts[-2]
-
-    with open(crops_path) as f:
-        crops = json.load(f)
-
-    if capture_id not in crops:
-        _err = f"Capture ID {capture_id} not found in crops file"
-        raise ValueError(_err)
-
-    crop_bounds = np.around(np.array(crops[capture_id][:4])).astype(int)
-
-    src_preview = read_preview(src_path, bounds=crop_bounds, smooth=smooth, greyscale=True)
-    dst_preview = read_preview(dst_path, bounds=crop_bounds, smooth=smooth, greyscale=True)
-    src_cube = read_cube(src_path, bounds=crop_bounds, smooth=smooth)
-    dst_cube = read_cube(dst_path, bounds=crop_bounds, smooth=smooth)
-
-    result, result_preview, matched_vis = register(dst_preview, dst_cube, src_preview, src_cube)
-    if result is None or result_preview is None:
-        _err = "Registration failed"
-        raise ValueError(_err)
-
-    if debug:
-        cv2.imshow("Matched Keypoints", matched_vis)
-        cv2.waitKey(0)
-
-    cv2.imwrite(f"{out_path.parent}/{out_path.stem}-preview.png", result_preview)
-    xr.Dataset({capture_id: result}).to_zarr(out_path.with_suffix(".zarr"), mode="w")
 
 
 def validate_homography(homog: npt.NDArray[np.float_]):
@@ -172,5 +123,79 @@ def register(
     return result, result_preview, matched_vis
 
 
-if __name__ == "__main__":
-    typer.run(_cli)
+class Cropper(param.Parameterized):
+    image_selection = param.Selector()
+    store_button = param.Action(lambda cropper: cropper.store_bounds(), label="Store bounds")
+
+    def __init__(self, capture_dir: PathLike, capture_ids: list[str] | None, crop_db: PathLike | None):
+        self.poly = hv.Polygons([]).opts(fill_alpha=0.2)
+        self.poly_stream = hv.streams.PolyDraw(  # type: ignore
+            source=self.poly,
+            drag=False,
+            num_objects=1,
+            show_vertices=True,
+            styles={"fill_color": "red", "line_color": "red"},
+            vertex_style={"fill_color": "red", "fill_alpha": 0.5},
+        )
+        self.poly_edit_stream = hv.streams.PolyEdit(  # type: ignore
+            source=self.poly, vertex_style={"fill_color": "red", "fill_alpha": 0.2}, shared=True
+        )
+
+        self.capture_dir = Path(capture_dir)
+
+        if capture_ids is not None:
+            self.cube_paths = {
+                k: self.capture_dir.glob(f"**/results/REFLECTANCE_{k}.hdr").__next__() for k in capture_ids
+            }
+        else:
+            paths = self.capture_dir.glob("**/results/REFLECTANCE_*.hdr")
+            self.cube_paths = {p.stem.removeprefix("REFLECTANCE_"): p for p in paths}
+            self.capture_ids = sorted(self.cube_paths.keys())
+
+        self.param.image_selection.objects = self.capture_ids
+        self.param.image_selection.default = self.capture_ids[0]
+
+        self.crop_db = crop_db
+        self.crop_corners = {}
+
+        if crop_db is not None:
+            try:
+                with open(crop_db) as fp:
+                    self.crop_corners = json.load(fp)
+            except FileNotFoundError:
+                logger.info("Crop database not found. Creating a new database.")
+
+        super().__init__()
+
+    def store_bounds(self):
+        corners = (
+            np.stack([self.poly_stream.data["xs"], self.poly_stream.data["ys"]], -1).astype(int)[:4].squeeze().tolist()
+        )
+        self.crop_corners[self.image_selection] = corners
+        if self.crop_db is not None:
+            with open(self.crop_db, "w") as fp:
+                json.dump(self.crop_corners, fp)
+
+    @param.depends("image_selection")
+    def plot(self):
+        verts = self.crop_corners.get(self.image_selection, [])
+        if len(verts) > 0:
+            x = np.array([v[0] for v in verts])
+            y = np.array([v[1] for v in verts])
+        else:
+            x, y = [], []
+        poly = {"x": x, "y": y}
+        self.poly.data = [poly]  # type: ignore
+        old_poly = hv.Polygons([poly]).opts(fill_color=None, line_color="orange", line_alpha=0.5)
+        im = read_preview(self.cube_paths[self.image_selection], greyscale=False)  # type: ignore
+        fig = (
+            hv.RGB(np.flip(np.array(im), (0, -1)), bounds=(0, 0, *im.shape[:2]))
+            .opts(invert_yaxis=True)
+            .opts(height=700, width=700, aspect="equal")  # type: ignore
+        )
+        return fig * old_poly * self.poly  # type: ignore
+
+
+def crop(capture_dir: PathLike, capture_ids: list[str] | None, crop_db: PathLike | None) -> pn.layout.Row:
+    cropper = Cropper(capture_dir, capture_ids, crop_db)
+    return pn.Row(cropper.param, cropper.plot)
