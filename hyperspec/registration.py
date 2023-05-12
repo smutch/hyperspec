@@ -150,7 +150,8 @@ class Cropper(param.Parameterized):
         else:
             paths = self.capture_dir.glob("**/results/REFLECTANCE_*.hdr")
             self.cube_paths = {p.stem.removeprefix("REFLECTANCE_"): p for p in paths}
-            self.capture_ids = sorted(self.cube_paths.keys())
+
+        self.capture_ids = sorted(self.cube_paths.keys())
 
         self.param.image_selection.objects = self.capture_ids
         self.param.image_selection.default = self.capture_ids[0]
