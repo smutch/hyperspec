@@ -3,7 +3,7 @@ from numpy.testing import assert_array_almost_equal
 from scipy.spatial import distance
 from spectral.algorithms import spectral_angles
 
-from hyperspec.stats import _cosine_similarity, pairwise_sam, pixelwise_sam
+from hyperspec.stats import _cosine_similarity, pairwise_sam_similarity, pixelwise_sam_similarity
 
 
 def test_cosine_similarity():
@@ -21,17 +21,17 @@ def test_cosine_similarity():
     assert_array_almost_equal(actual_similarity, expected_similarity)
 
 
-def test_pixelwise_sam():
+def test_pixelwise_sam_similarity():
     cube1 = np.random.rand(4, 4, 4)
     cube2 = np.ones(cube1.shape) * cube1[0, 0]
-    sam1 = pixelwise_sam(cube1, cube2)
-    sam2 = spectral_angles(cube1, cube2[0, 0][None, :]).squeeze()
+    sam1 = pixelwise_sam_similarity(cube1, cube2)
+    sam2 = 1.0 - spectral_angles(cube1, cube2[0, 0][None, :]).squeeze()
     np.testing.assert_array_almost_equal(sam1, sam2)
 
 
-def test_pairwise_sam():
+def test_pairwise_sam_similarity():
     cube = np.random.rand(4, 4, 4)
     spectra = np.random.rand(4, 4)
-    sam1 = pairwise_sam(cube, spectra)
-    sam2 = spectral_angles(cube, spectra)
+    sam1 = pairwise_sam_similarity(cube, spectra)
+    sam2 = 1.0 - spectral_angles(cube, spectra)
     np.testing.assert_array_almost_equal(sam1, sam2)

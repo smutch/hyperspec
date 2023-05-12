@@ -4,7 +4,13 @@ import xarray as xr
 from sklearn import decomposition as decomp
 from spectral.algorithms import spectral_angles
 
-__all__ = ["pca", "pixelwise_cosine_similarity", "sam", "pixelwise_sam", "pairwise_sam"]
+__all__ = [
+    "pca",
+    "pixelwise_cosine_similarity",
+    "sam_similarity",
+    "pixelwise_sam_similarity",
+    "pairwise_sam_similarity",
+]
 
 
 def pca(cube: xr.DataArray, n_components: int = 3) -> xr.Dataset:
@@ -87,9 +93,9 @@ def pixelwise_cosine_similarity(cube1: npt.NDArray[np.float_], cube2: npt.NDArra
     return _cosine_similarity(arr1, arr2).reshape(cube1.shape[:-1])
 
 
-def sam(arr1: npt.NDArray[np.float_], arr2: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
+def sam_similarity(arr1: npt.NDArray[np.float_], arr2: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
     """
-    Computes the cosine similarity between two 3D arrays.
+    Computes the spectral angle mapping (SAM) similarity between two 3D arrays.
     Args:
       arr1 (npt.NDArray[np.float_]): The first 3D array.
       arr2 (npt.NDArray[np.float_]): The second 3D array.
@@ -110,12 +116,12 @@ def sam(arr1: npt.NDArray[np.float_], arr2: npt.NDArray[np.float_]) -> npt.NDArr
     result = numerator / (denom1 * denom2)
     np.clip(result, -1.0, 1.0, out=result)
     np.arccos(result, out=result)
-    return result.squeeze()
+    return 1.0 - result.squeeze()
 
 
-def pairwise_sam(cube: npt.NDArray[np.float_], spectra: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
+def pairwise_sam_similarity(cube: npt.NDArray[np.float_], spectra: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
     """
-    Computes the pairwise SAM between a cube and array of spectra.
+    Computes the pairwise spectral angle mapping (SAM) similarity between a cube and array of spectra.
     Args:
       cube (npt.NDArray[np.float_]): A 3-dimensional cube.
       spectra (npt.NDArray[np.float_]): A 1- or 2-dimensional array of spectra.
@@ -138,12 +144,12 @@ def pairwise_sam(cube: npt.NDArray[np.float_], spectra: npt.NDArray[np.float_]) 
         raise ValueError(_err)
     if spectra.ndim == 1:
         spectra = spectra[None, :]
-    return spectral_angles(cube, spectra)
+    return 1.0 - spectral_angles(cube, spectra)
 
 
-def pixelwise_sam(arr1: npt.NDArray[np.float_], arr2: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
+def pixelwise_sam_similarity(arr1: npt.NDArray[np.float_], arr2: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
     """
-    Computes the pixelwise spherical angle measure (SAM) between two cubes / arrays with dim <= 3.
+    Computes the pixelwise spectral angle mapping (SAM) similarity between two cubes / arrays with dim <= 3.
     Args:
       arr1 (npt.NDArray[np.float_]): The first cube / array.
       arr2 (npt.NDArray[np.float_]): The second cube / array.
@@ -167,4 +173,4 @@ def pixelwise_sam(arr1: npt.NDArray[np.float_], arr2: npt.NDArray[np.float_]) ->
     if arr1.ndim == 2:
         arr1 = arr1[:, None, :]
         arr2 = arr2[:, None, :]
-    return sam(arr1, arr2)
+    return sam_similarity(arr1, arr2)

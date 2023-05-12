@@ -32,11 +32,6 @@ def validate_homography(homog: npt.NDArray[np.float_]):
         _err = "Homography transform is non-invertable"
         raise ValueError(_err)
 
-    # check the transform is homogeneous
-    if homog[2, 2] != 1.0:
-        _err = "Homography transform is not homogeneous"
-        raise ValueError(_err)
-
     # must approximately preserve area (to within a tolerance appropriate for us)
     # NOTE: Order of points is important here to provide a valid contour
     points = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], np.float32)
@@ -59,6 +54,7 @@ def register(
     src_preview: npt.NDArray,
     src_cube: xr.DataArray,
     *,
+    crop_registered: bool = True,
     orb_create_kwargs: dict[str, Any] | None = None,
     flann_index_kwargs: dict[str, Any] | None = None,
     flann_search_kwargs: dict[str, Any] | None = None,
@@ -106,6 +102,11 @@ def register(
         pts_src = np.array([keypoints_src[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
         pts_dst = np.array([keypoints_dst[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
         homog, _ = cv2.findHomography(pts_src, pts_dst, method=cv2.RANSAC, ransacReprojThreshold=5.0)
+
+        if homog is None:
+            _err = "Homography could not be found"
+            raise cv2.error(_err)
+
         validate_homography(homog)
 
         result_preview = cv2.warpPerspective(src_preview, homog, src_preview.shape[:2][::-1])
@@ -119,6 +120,13 @@ def register(
     except cv2.error as err:
         warn(err.msg, stacklevel=2)
         return None, None, matched_vis
+
+    if crop_registered:
+        _border_crop = 0
+        while np.any(result < 0):
+            result = result[1:-1, 1:-1, :]
+            _border_crop += 1
+        logger.info(f"Cropped {_border_crop} around edges of registered cube.")
 
     return result, result_preview, matched_vis
 
@@ -171,17 +179,17 @@ class Cropper(param.Parameterized):
         corners = (
             np.stack([self.poly_stream.data["xs"], self.poly_stream.data["ys"]], -1).astype(int)[:4].squeeze().tolist()
         )
-        self.crop_corners[self.image_selection] = corners
+        self.crop_corners[self.image_selection] = corners  # type:ignore
         if self.crop_db is not None:
             with open(self.crop_db, "w") as fp:
                 json.dump(self.crop_corners, fp)
 
     @param.depends("image_selection")
     def plot(self):
-        verts = self.crop_corners.get(self.image_selection, [])
+        verts = self.crop_corners.get(self.image_selection, [])  # type:ignore
         if len(verts) > 0:
-            x = np.array([v[0] for v in verts])
-            y = np.array([v[1] for v in verts])
+            x = np.array([v[0] for v in verts])  # type:ignore
+            y = np.array([v[1] for v in verts])  # type:ignore
         else:
             x, y = [], []
         poly = {"x": x, "y": y}
