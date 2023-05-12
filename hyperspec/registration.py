@@ -16,7 +16,7 @@ import xarray as xr
 
 from hyperspec.io import read_preview
 
-__all__ = ["register", "crop"]
+__all__ = ["register", "crop", "read_crop_db"]
 logger = logging.getLogger(__name__)
 
 
@@ -161,8 +161,7 @@ class Cropper(param.Parameterized):
 
         if crop_db is not None:
             try:
-                with open(crop_db) as fp:
-                    self.crop_corners = json.load(fp)
+                self.crop_corners = read_crop_db(crop_db)
             except FileNotFoundError:
                 logger.info("Crop database not found. Creating a new database.")
 
@@ -200,3 +199,9 @@ class Cropper(param.Parameterized):
 def crop(capture_dir: PathLike, capture_ids: list[str] | None, crop_db: PathLike | None) -> pn.layout.Row:
     cropper = Cropper(capture_dir, capture_ids, crop_db)
     return pn.Row(cropper.param, cropper.plot)
+
+
+def read_crop_db(crop_db: PathLike) -> dict[str, list[int]]:
+    with open(crop_db) as fp:
+        crop_corners = json.load(fp)
+    return crop_corners
