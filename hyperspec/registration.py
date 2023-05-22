@@ -75,7 +75,7 @@ def register(
     Examples:
       >>> register(dst_preview, dst_cube, src_preview, src_cube,
                    orb_create_kwargs={"nfeatures": 1000},
-                   flann_index_kwargs={"algorithm": 5})
+                   bfmatcher_kwargs={"crossCheck": False})
       (xr.DataArray, npt.NDArray, npt.NDArray)
     """
 
