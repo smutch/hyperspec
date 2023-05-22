@@ -79,6 +79,11 @@ def register(
       (xr.DataArray, npt.NDArray, npt.NDArray)
     """
 
+    if dst_preview.ndim != 2:
+        dst_preview = cv2.cvtColor(dst_preview, cv2.COLOR_BGR2GRAY)
+    if src_preview.ndim != 2:
+        src_preview = cv2.cvtColor(src_preview, cv2.COLOR_BGR2GRAY)
+
     # TODO: Try all 4 rotations
     _orb_create_kwargs = {"nfeatures": 10_000, "scaleFactor": 1.2, "scoreType": cv2.ORB_HARRIS_SCORE, "WTA_K": 4}
     _orb_create_kwargs.update(orb_create_kwargs or {})

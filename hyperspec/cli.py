@@ -26,6 +26,9 @@ def register(
 ):
     """
     Runs the registration process.
+
+    Example:
+        hyperspec register 2023-03-09_014/results/REFLECTANCE_2023-03-09_014.hdr 2023-03-09_015/results/REFLECTANCE_2023-03-09_015.hdr bounds.json registered.zarr
     """
     capture_id = src_path.parent.parts[-2]
 
@@ -65,6 +68,9 @@ def crop(
 ):
     """
     Start an interactive web interface for cropping cubes.
+
+    Example:
+        hyperspec crop set1 bounds.json
     """
     hv.extension("bokeh")  # type: ignore
     _capture_ids = capture_ids

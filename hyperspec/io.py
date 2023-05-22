@@ -33,7 +33,7 @@ def crop(arr: TCropArr, bounds: npt.NDArray[np.int_]) -> TCropArr:
     return arr[ymin:ymax, xmin:xmax]
 
 
-def read_cube(path: Path, bounds: npt.NDArray | None, smooth: float = 0.0) -> xr.DataArray:
+def read_cube(path: Path | str, bounds: npt.NDArray | None = None, smooth: float = 0.0) -> xr.DataArray:
     """
     Reads a BIL hypercube and optionally crops it.
     Args:
@@ -43,7 +43,7 @@ def read_cube(path: Path, bounds: npt.NDArray | None, smooth: float = 0.0) -> xr
     Returns:
       xr.DataArray: The hypercube.
     Examples:
-      >>> cube = read_cube(Path("/path/to/hypercube.bil"), bounds=np.array([[0, 1], [1, 2]]), smooth=2.0)
+      >>> cube = read_cube(Path("/path/to/hypercube.hdr"), bounds=np.array([[0, 1], [1, 2]]), smooth=2.0)
       >>> cube
       <xarray.DataArray (y: 2, x: 2, band: 100)>
       array([[[0.0020, 0.0020, ..., 0.0020],
@@ -81,7 +81,7 @@ def read_cube(path: Path, bounds: npt.NDArray | None, smooth: float = 0.0) -> xr
 
 
 def read_preview(
-    cube_path: Path, bounds: npt.NDArray[np.int_] | None = None, *, smooth: float = 0.0, greyscale: bool = False
+    cube_path: Path | str, bounds: npt.NDArray[np.int_] | None = None, *, smooth: float = 0.0, greyscale: bool = False
 ) -> npt.NDArray:
     """
     Reads a preview image and optionally crops it.
@@ -93,12 +93,13 @@ def read_preview(
     Returns:
       npt.NDArray: The preview image.
     Examples:
-      >>> preview = read_preview(Path("/path/to/hypercube.bil"), bounds=np.array([[0, 1], [1, 2]]),
+      >>> preview = read_preview(Path("/path/to/hypercube.hdr"), bounds=np.array([[0, 1], [1, 2]]),
                                  smooth=2.0, greyscale=True)
       >>> preview
       array([[0.0020, 0.0020],
              [0.0020, 0.0020]], dtype=float32)
     """
+    cube_path = Path(cube_path)
     ident = cube_path.name.removeprefix("REFLECTANCE_").removesuffix(".hdr")
     path = cube_path.parents[1] / f"{ident}.png"
     if not path.exists():
