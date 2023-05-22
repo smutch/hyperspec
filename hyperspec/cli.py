@@ -28,7 +28,8 @@ def register(
     Runs the registration process.
 
     Example:
-        hyperspec register 2023-03-09_014/results/REFLECTANCE_2023-03-09_014.hdr 2023-03-09_015/results/REFLECTANCE_2023-03-09_015.hdr bounds.json registered.zarr
+        hyperspec register 2023-03-09_014/results/REFLECTANCE_2023-03-09_014.hdr \
+            2023-03-09_015/results/REFLECTANCE_2023-03-09_015.hdr bounds.json registered.zarr
     """
     capture_id = src_path.parent.parts[-2]
 
@@ -73,8 +74,8 @@ def crop(
         hyperspec crop set1 bounds.json
     """
     hv.extension("bokeh")  # type: ignore
-    _capture_ids = capture_ids
-    if _capture_ids is not None:
-        _capture_ids = _capture_ids.split(",")
+    _capture_ids = None
+    if capture_ids is not None:
+        _capture_ids = capture_ids.split(",")
 
     registration.crop(capture_dir, _capture_ids, crop_db).show()
