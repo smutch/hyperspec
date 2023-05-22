@@ -133,7 +133,7 @@ class Cropper(param.Parameterized):
     image_selection = param.Selector()
     store_button = param.Action(lambda cropper: cropper.store_bounds(), label="Store bounds")
 
-    def __init__(self, capture_dir: PathLike, capture_ids: list[str] | None, crop_db: PathLike | None):
+    def __init__(self, capture_dir: PathLike, capture_ids: list[str] | None = None, crop_db: PathLike | None = None):
         self.poly = hv.Polygons([]).opts(fill_alpha=0.2)
         self.poly_stream = hv.streams.PolyDraw(  # type: ignore
             source=self.poly,
@@ -202,8 +202,10 @@ class Cropper(param.Parameterized):
         return fig * old_poly * self.poly  # type: ignore
 
 
-def crop(capture_dir: PathLike, capture_ids: list[str] | None, crop_db: PathLike | None) -> pn.layout.Row:
-    cropper = Cropper(capture_dir, capture_ids, crop_db)
+def crop(
+    capture_dir: PathLike | str, capture_ids: list[str] | None = None, crop_db: PathLike | None = None
+) -> pn.layout.Row:
+    cropper = Cropper(Path(capture_dir), capture_ids, crop_db)
     return pn.Row(cropper.param, cropper.plot)
 
 
