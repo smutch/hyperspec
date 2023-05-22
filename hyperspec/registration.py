@@ -56,8 +56,7 @@ def register(
     *,
     crop_registered: bool = True,
     orb_create_kwargs: dict[str, Any] | None = None,
-    flann_index_kwargs: dict[str, Any] | None = None,
-    flann_search_kwargs: dict[str, Any] | None = None,
+    bfmatcher_kwargs: dict[str, Any] | None = None,
 ) -> tuple[xr.DataArray | None, npt.NDArray | None, npt.NDArray]:
     """
     Registers the source cube to the destination cube.
@@ -67,8 +66,7 @@ def register(
       src_preview (npt.NDArray): Preview of the source cube.
       src_cube (xr.DataArray): Source cube.
       orb_create_kwargs (dict[str, Any] | None): Keyword arguments for ORB creation.
-      flann_index_kwargs (dict[str, Any] | None): Keyword arguments for FLANN index.
-      flann_search_kwargs (dict[str, Any] | None): Keyword arguments for FLANN search.
+      bfmatcher_kwargs (dict[str, Any] | None): Keyword arguments for the brute-force matcher creation.
     Returns:
       tuple[xr.DataArray | None, npt.NDArray | None, npt.NDArray]: The registered cube, the registered preview, and the
                                                                    matched keypoints visualization.
@@ -80,20 +78,20 @@ def register(
                    flann_index_kwargs={"algorithm": 5})
       (xr.DataArray, npt.NDArray, npt.NDArray)
     """
-    _orb_create_kwargs = {"nfeatures": 10_000, "scaleFactor": 1.2, "scoreType": cv2.ORB_HARRIS_SCORE}
+
+    # TODO: Try all 4 rotations
+    _orb_create_kwargs = {"nfeatures": 10_000, "scaleFactor": 1.2, "scoreType": cv2.ORB_HARRIS_SCORE, "WTA_K": 4}
     _orb_create_kwargs.update(orb_create_kwargs or {})
     orb = cv2.ORB_create(**_orb_create_kwargs)
 
     keypoints_src, descriptors_src = orb.detectAndCompute(src_preview, None)
     keypoints_dst, descriptors_dst = orb.detectAndCompute(dst_preview, None)
 
-    _flann_index_kwargs = {"algorithm": 6, "table_number": 6, "key_size": 10, "multi_probe_level": 2}
-    _flann_index_kwargs.update(flann_index_kwargs or {})
-    _flann_search_kwargs = {"checks": 50}
-    _flann_search_kwargs.update(flann_search_kwargs or {})
-    matcher = cv2.FlannBasedMatcher(_flann_index_kwargs, _flann_search_kwargs)
+    _bfmatcher_kwargs = {"normType": cv2.NORM_HAMMING2, "crossCheck": True}
+    _bfmatcher_kwargs.update(bfmatcher_kwargs or {})
 
-    matches = [m for m, n in matcher.knnMatch(descriptors_src, descriptors_dst, k=2) if m.distance < 0.7 * n.distance]
+    matcher = cv2.BFMatcher_create(**_bfmatcher_kwargs)
+    matches = matcher.match(descriptors_src, descriptors_dst)
 
     matched_vis = cv2.drawMatches(src_preview, keypoints_src, dst_preview, keypoints_dst, matches, None)
     matched_vis = imutils.resize(matched_vis, width=1_000)
