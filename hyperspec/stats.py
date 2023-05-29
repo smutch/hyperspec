@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 
-def pca(cube: xr.DataArray, n_components: int = 3) -> xr.Dataset:
+def pca(cube: xr.DataArray, n_components: int = 3, min_contained_var: float = 0.0) -> xr.Dataset:
     """
     Computes principal components of a cube.
     Args:
@@ -32,14 +32,17 @@ def pca(cube: xr.DataArray, n_components: int = 3) -> xr.Dataset:
           0        (band) float64 0.541 0.8
           1        (band) float64 0.8 0.541
     """
-    model = decomp.PCA(n_components=n_components)
+    model = decomp.PCA()
     bands = cube.band.values
     X = (  # noqa: N806  <- sklearn norm
         cube.dropna("x", how="all").dropna("y", how="all").values.reshape((-1, bands.size))
     )
     model.fit_transform(X)
+    total_var = np.cumsum(model.explained_variance_)
+    total_var /= total_var[-1]
+    keep_components = max(np.where(total_var < min_contained_var)[0][-1], n_components)
     components = xr.Dataset(
-        {str(ii): (("band",), component) for ii, component in enumerate(model.components_)},
+        {str(ii): (("band",), component) for ii, component in zip(np.arange(keep_components), model.components_)},
         coords={"band": bands},
     )
     return components
