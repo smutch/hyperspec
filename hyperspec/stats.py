@@ -19,6 +19,7 @@ def pca(cube: xr.DataArray, n_components: int = 3, min_contained_var: float = 0.
     Args:
       cube (xr.DataArray): The cube to compute principal components of.
       n_components (int): The number of components to compute.
+      min_contained_var (float): The minimum total contained variance to keep.
     Returns:
       xr.Dataset: A dataset containing the principal components.
     Examples:
@@ -32,6 +33,10 @@ def pca(cube: xr.DataArray, n_components: int = 3, min_contained_var: float = 0.
           0        (band) float64 0.541 0.8
           1        (band) float64 0.8 0.541
     """
+    if min_contained_var > 1.0 or min_contained_var < 0.0:
+        _err = f"min_contained_var must be between 0.0 and 1.0, but got {min_contained_var}"
+        raise ValueError(_err)
+
     model = decomp.PCA()
     bands = cube.band.values
     X = (  # noqa: N806  <- sklearn norm
@@ -40,7 +45,10 @@ def pca(cube: xr.DataArray, n_components: int = 3, min_contained_var: float = 0.
     model.fit_transform(X)
     total_var = np.cumsum(model.explained_variance_)
     total_var /= total_var[-1]
-    keep_components = max(np.where(total_var < min_contained_var)[0][-1], n_components)
+    if min_contained_var > 0.0:
+        keep_components = max(np.where(total_var <= min_contained_var)[0][-1], n_components)
+    else:
+        keep_components = n_components
     components = xr.Dataset(
         {str(ii): (("band",), component) for ii, component in zip(np.arange(keep_components), model.components_)},
         coords={"band": bands},
